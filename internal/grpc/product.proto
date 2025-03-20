@@ -1,0 +1,38 @@
+syntax = "proto3";
+
+package product;
+
+option go_package = "berezovskyivalerii/server-rpc-csv/internal/grpc;grpc";
+
+service ProductService {
+    rpc Fetch (FetchRequest) returns (FetchResponse);
+    rpc List (ListRequest) returns (ListResponse);
+}
+
+message FetchRequest {
+    string url = 1;
+}
+
+message FetchResponse {
+    bool success = 1;
+    string message = 2;
+}
+
+message ListRequest {
+    int32 page_number = 1;
+    int32 page_size = 2;
+    string sort_field = 3; // product_name | price | last_updated
+    string sort_order = 4; // asc | desc
+}
+
+message Product {
+    string product_name = 1;
+    double price = 2;
+    int32 price_change_count = 3;
+    string last_updated = 4; // ISO date string
+}
+
+message ListResponse {
+    repeated Product products = 1;
+    int32 total_products = 2;
+}
