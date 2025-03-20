@@ -1,7 +1,7 @@
 package csvparser
 
 import (
-	"berezovskyivalerii/server-rpc-csv/pkg/domain"
+	"github.com/berezovskyivalerii/server-rpc-csv/pkg/domain"
 	"encoding/csv"
 	"errors"
 	"io"

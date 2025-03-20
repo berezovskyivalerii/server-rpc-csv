@@ -5,14 +5,15 @@ import (
 	"net"
 
 	"google.golang.org/grpc"
+	product "github.com/berezovskyivalerii/server-rpc-csv/proto"
 )
 
 type Server struct {
 	grpcServ      *grpc.Server
-	productServer ProductServiceServer
+	productServer product.ProductServiceServer
 }
 
-func New(productServer ProductServiceServer) *Server {
+func New(productServer product.ProductServiceServer) *Server {
 	return &Server{
 		grpcServ:      grpc.NewServer(),
 		productServer: productServer,
@@ -27,7 +28,7 @@ func (s *Server) ListenAndServe(port int) error {
 		return err
 	}
 
-	RegisterProductServiceServer(s.grpcServ, s.productServer)
+	product.RegisterProductServiceServer(s.grpcServ, s.productServer)
 
 	if err := s.grpcServ.Serve(lis); err != nil {
 		return err

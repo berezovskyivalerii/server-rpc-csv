@@ -1,75 +1,75 @@
 package repository
 
 import (
-	"berezovskyivalerii/server-rpc-csv/pkg/domain"
+	"github.com/berezovskyivalerii/server-rpc-csv/pkg/domain"
 	"context"
-	"database/sql"
 	"time"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type Product struct {
-	db *sql.DB
+	db *mongo.Database
 }
 
-func NewProduct(db *sql.DB) *Product {
+func NewProduct(db *mongo.Database) *Product {
 	return &Product{
 		db: db,
 	}
 }
 
 func (r *Product) Fetch(ctx context.Context, req []domain.Product) error {
-	// Начало транзакции
-	tx, err := r.db.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
+	collection := r.db.Collection("products")
 
-	// При ошибки откатываем транзакции обратно
-	defer func() {
-		if err != nil {
-			_ = tx.Rollback()
-		}
-	}()
-
-	//Перебираем все продукты в списке
 	for _, p := range req {
-		var currentPrice float64
-		var priceChangeCount int32
+		var existingProduct domain.Product
+		err := collection.FindOne(ctx, bson.M{"name": p.Name}).Decode(&existingProduct)
 
-		err = tx.QueryRowContext(ctx,
-			"SELECT price, price_change_count FROM products WHERE id = ?", p.ID).Scan(&currentPrice, &priceChangeCount)
-
-		// Если продукта нет, то создаем новый
-		if err == sql.ErrNoRows {
-			_, err = tx.ExecContext(ctx, `INSERT INTO products (id, price, last_request, last_updated, price_change_count)
-				 VALUES (?, ?, ?, ?, ?)`, p.ID, p.Name, p.Price, time.Now(), time.Now(), 0)
-			if err != nil {
-				return err
+		if err != nil {
+			if err == mongo.ErrNoDocuments {
+				// Продукта нет, создаём новый
+				_, err = collection.InsertOne(ctx, bson.M{
+					"name":               p.Name,
+					"price":              p.Price,
+					"last_updated":       time.Now(),
+					"last_request":       time.Now(),
+					"price_change_count": 0,
+				})
+				if err != nil {
+					return err
+				}
+				continue
 			}
-		} else if err != nil { // В случае если происходит другая ошибка (не обрабатываем)
-			return nil
+			return err
+		}
+
+		update := bson.M{}
+		if existingProduct.Price != p.Price {
+			// Цена изменилась
+			update = bson.M{
+				"$set": bson.M{
+					"price":        p.Price,
+					"last_updated": time.Now(),
+				},
+				"$inc": bson.M{"price_change_count": 1},
+			}
 		} else {
-			// Если продукт есть, то проверяем изменилась ли цена
-			if p.Price != currentPrice { // Если цена изменилась, то обновляем цену, время последнего запроса и количество изменений цены
-				_, err = tx.ExecContext(ctx, `UPDATE products
-					 SET price = ?, last_updated = ?, price_change_count = ?
-					 WHERE id = ?`, p.Price, time.Now(), priceChangeCount+1, p.ID)
-				if err != nil {
-					return err
-				}
-			} else { // Если цена не изменилась, то обновляем время последнего запроса
-				_, err = tx.ExecContext(ctx,
-					`UPDATE products
-					 SET last_request = ?
-					 WHERE id = ?`, time.Now(), p.ID,
-				)
-				if err != nil {
-					return err
-				}
+			// Цена не изменилась, обновляем только last_request
+			update = bson.M{
+				"$set": bson.M{"last_request": time.Now()},
 			}
+		}
+
+		_, err = collection.UpdateOne(ctx, bson.M{"name": p.Name}, update, options.Update().SetUpsert(true))
+		if err != nil {
+			return err
 		}
 	}
 
-	// Фиксируем транзакцию
-	return tx.Commit()
+	return nil
+}
+
+func (r *Product) List(ctx context.Context, req domain.ListRequest) (*domain.ListResponse, error){
+	return nil, nil
 }

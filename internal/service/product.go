@@ -1,23 +1,24 @@
 package service
 
 import (
-	"berezovskyivalerii/server-rpc-csv/pkg/domain"
-	product "berezovskyivalerii/server-rpc-csv/internal/grpc"
-	"berezovskyivalerii/server-rpc-csv/pkg/csvparser"
 	"context"
+	"github.com/berezovskyivalerii/server-rpc-csv/pkg/csvparser"
+	"github.com/berezovskyivalerii/server-rpc-csv/pkg/domain"
+	product "github.com/berezovskyivalerii/server-rpc-csv/proto"
 	"net/http"
+	"time"
 )
 
-type ProductRepository interface{
+type ProductRepository interface {
 	Fetch(ctx context.Context, req []domain.Product) error
-	List(ctx context.Context, req *product.ListRequest) (*product.ListResponse, error)
+	List(ctx context.Context, req domain.ListRequest) (*domain.ListResponse, error)
 }
 
-type Product struct{
+type Product struct {
 	repo ProductRepository
 }
 
-func NewProduct(repo ProductRepository) *Product{
+func NewProduct(repo ProductRepository) *Product {
 	return &Product{
 		repo: repo,
 	}
@@ -26,7 +27,7 @@ func NewProduct(repo ProductRepository) *Product{
 func (s *Product) Fetch(ctx context.Context, req *product.FetchRequest) (*product.FetchResponse, error) {
 	// Сделать запрос на сервис
 	resp, err := http.Get(req.Url)
-	if err != nil{
+	if err != nil {
 		return &product.FetchResponse{
 			Success: false,
 			Message: "Failed to fetch CSV: " + err.Error(),
@@ -68,5 +69,33 @@ func (s *Product) Fetch(ctx context.Context, req *product.FetchRequest) (*produc
 }
 
 func (s *Product) List(ctx context.Context, req *product.ListRequest) (*product.ListResponse, error) {
-	return s.repo.List(ctx, req)
+	// конвертация gRPC-запроса в domain-запрос
+	domainReq := domain.ListRequest{
+		PageNumber: req.PageNumber,
+		PageSize:   req.PageSize,
+		SortField:  req.SortField,
+		SortOrder:  req.SortOrder,
+	}
+
+	// вызов метода репозитория
+	domainResp, err := s.repo.List(ctx, domainReq)
+	if err != nil {
+		return nil, err
+	}
+
+	// Конвертация ответа репозитория в gRPC-ответ
+	protoProducts := make([]*product.Product, len(domainResp.Products))
+	for i, p := range domainResp.Products {
+		protoProducts[i] = &product.Product{
+			ProductName:      p.Name,
+			Price:            p.Price,
+			PriceChangeCount: p.PriceChangeCount,
+			LastUpdated:      p.LastUpdated.Format(time.RFC3339), // конвертация даты в строку
+		}
+	}
+
+	return &product.ListResponse{
+		Products:      protoProducts,
+		TotalProducts: domainResp.TotalProducts,
+	}, nil
 }

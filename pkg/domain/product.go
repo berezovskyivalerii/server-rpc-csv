@@ -16,3 +16,8 @@ type ListRequest struct {
 	SortField  string
 	SortOrder  string
 }
+
+type ListResponse struct {
+	Products      []Product
+	TotalProducts int32
+}
