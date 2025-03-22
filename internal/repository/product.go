@@ -7,6 +7,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"fmt"
 )
 
 type Product struct {
@@ -24,6 +25,7 @@ func (r *Product) Fetch(ctx context.Context, req []domain.Product) error {
 
 	for _, p := range req {
 		var existingProduct domain.Product
+		//Проверяем ли существует продукт (проверка по name)
 		err := collection.FindOne(ctx, bson.M{"name": p.Name}).Decode(&existingProduct)
 
 		if err != nil {
@@ -37,13 +39,17 @@ func (r *Product) Fetch(ctx context.Context, req []domain.Product) error {
 					"price_change_count": 0,
 				})
 				if err != nil {
+					fmt.Println("Failed Inserting new product:", p.Name)
 					return err
 				}
+				fmt.Println("Inserting new product:", p.Name)
+
 				continue
 			}
 			return err
 		}
 
+		// Если продукт есть, но цена поменялась
 		update := bson.M{}
 		if existingProduct.Price != p.Price {
 			// Цена изменилась
@@ -71,5 +77,53 @@ func (r *Product) Fetch(ctx context.Context, req []domain.Product) error {
 }
 
 func (r *Product) List(ctx context.Context, req domain.ListRequest) (*domain.ListResponse, error){
-	return nil, nil
+	collection := r.db.Collection("products")
+
+	//Параметры пагинации 
+	skip := (req.PageNumber - 1) * req.PageSize
+	limit := int64(req.PageSize)
+
+	// Параметры сортировки
+	sortOrder := 1 // по умолчанию ASC
+	if req.SortOrder == "desc"{
+		sortOrder = -1
+	}
+
+	sortField := req.SortField
+	if sortField == ""{
+		sortField = "name"
+	}
+
+	// Запрос сортировки
+	findOptions := options.Find()
+	findOptions.SetSort(bson.D{{Key: sortField, Value: sortOrder}})
+	findOptions.SetSkip(int64(skip))
+	findOptions.SetLimit(limit)
+
+	// Запрос данных
+	cursor, err := collection.Find(ctx, bson.M{}, findOptions)
+	if err != nil{
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var products []domain.Product
+	for cursor.Next(ctx){
+		var product domain.Product
+		if err := cursor.Decode(&product); err != nil{
+			return nil, err
+		}
+		products = append(products, product)
+	}
+
+	// Подсчёт общего количества документов
+	totalCount, err := collection.CountDocuments(ctx, bson.M{})
+	if err != nil {
+		return nil, err
+	}
+
+	return &domain.ListResponse{
+		Products:      products,
+		TotalProducts: int32(totalCount),
+	}, nil
 }

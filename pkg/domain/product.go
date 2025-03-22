@@ -13,8 +13,8 @@ type Product struct {
 type ListRequest struct {
 	PageNumber int32
 	PageSize   int32
-	SortField  string
-	SortOrder  string
+	SortField  string // name | price | lastUpdated | priceChangeCount
+	SortOrder  string // ASC | SESC
 }
 
 type ListResponse struct {
