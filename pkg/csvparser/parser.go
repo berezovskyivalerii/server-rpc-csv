@@ -12,7 +12,7 @@ import (
 
 func ParseCSV(reader io.Reader) ([]domain.Product, error) {
 	csvReader := csv.NewReader(reader)
-	csvReader.Comma = ';'
+	csvReader.Comma = ','
 	csvReader.LazyQuotes = true
 
 	var products []domain.Product
