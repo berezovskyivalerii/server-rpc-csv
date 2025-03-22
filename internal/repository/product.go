@@ -42,7 +42,6 @@ func (r *Product) Fetch(ctx context.Context, req []domain.Product) error {
 					fmt.Println("Failed Inserting new product:", p.Name)
 					return err
 				}
-				fmt.Println("Inserting new product:", p.Name)
 
 				continue
 			}

@@ -45,7 +45,6 @@ func (s *Product) Fetch(ctx context.Context, req *product.FetchRequest) (*produc
 		}, nil
 	}
 
-	fmt.Println("products, err := csvparser.ParseCSV")
 	// Распарсить ответ в []domain.Product
 	products, err := csvparser.ParseCSV(resp.Body)
 	if err != nil {
@@ -57,11 +56,7 @@ func (s *Product) Fetch(ctx context.Context, req *product.FetchRequest) (*produc
 			Message: "Failed to parse CSV: " + err.Error(),
 		}, nil
 	}
-	for i := 0; i < len(products); i++ {
-		fmt.Println(products[i])
-	}
-	
-	fmt.Println("s.repo.Fetch(ctx, products)")
+
 	// Отправить на уровень репозитория
 	err = s.repo.Fetch(ctx, products)
 	if err != nil {
@@ -70,7 +65,6 @@ func (s *Product) Fetch(ctx context.Context, req *product.FetchRequest) (*produc
 			Message: "Failed to save products to repository: " + err.Error(),
 		}, nil
 	}
-	fmt.Println("return")
 
 	// Успешно
 	return &product.FetchResponse{
