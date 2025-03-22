@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"fmt"
 	product "github.com/berezovskyivalerii/server-rpc-csv/proto"
 )
 
@@ -22,6 +23,7 @@ func NewProductServer(service ProductService) *ProductServer {
 }
 
 func (s *ProductServer) Fetch(ctx context.Context, req *product.FetchRequest) (*product.FetchResponse, error) {
+	fmt.Println("[Fetch] %d")
 	return s.service.Fetch(ctx, req)
 }
 
