@@ -1,9 +1,9 @@
 package csvparser
 
 import (
-	"github.com/berezovskyivalerii/server-rpc-csv/pkg/domain"
 	"encoding/csv"
 	"errors"
+	"github.com/berezovskyivalerii/server-rpc-csv/pkg/domain"
 	"io"
 	"strconv"
 	"strings"
@@ -12,10 +12,17 @@ import (
 
 func ParseCSV(reader io.Reader) ([]domain.Product, error) {
 	csvReader := csv.NewReader(reader)
-	csvReader.Comma = ','
+	csvReader.Comma = ','              // <-- под запятую
 	csvReader.LazyQuotes = true
 
 	var products []domain.Product
+
+	// Пропустить заголовок
+	_, err := csvReader.Read()
+	if err != nil {
+		return nil, err
+	}
+
 	for {
 		record, err := csvReader.Read()
 		if err == io.EOF {
@@ -45,3 +52,4 @@ func ParseCSV(reader io.Reader) ([]domain.Product, error) {
 
 	return products, nil
 }
+
